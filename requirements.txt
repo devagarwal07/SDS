@@ -1,6 +1,6 @@
 streamlit
-rdkit
-pubchempy
+
+PubChemPy
 pandas
-pdfkit
+weasyprint
 beautifulsoup4

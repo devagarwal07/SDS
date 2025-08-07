@@ -251,18 +251,34 @@ def generate_sds(smiles):
     }
     return sds
 
-def generate_pdf(sds, compound_name="Unknown Compound"):
-    """Generate a professional, styled PDF using pdfkit and return file path"""
-    # Get current timestamp
-    generated_on = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M")
+# sds_generator.py
 
-    # Build HTML with all 16 sections
+from weasyprint import HTML
+import os
+import uuid  # To generate unique filenames
+from datetime import datetime
+
+def generate_pdf(sds, compound_name="Unknown_Compound"):
+    """
+    Generate a professional PDF using WeasyPrint (no external binaries).
+    Returns path to the generated PDF.
+    """
+    generated_on = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Sanitize filename
+    safe_name = "".join(c for c in compound_name if c.isalnum() or c in "_-")
+    safe_name = safe_name.strip().replace(" ", "_") or "Unknown_Compound"
+
+    # Generate unique filename to avoid conflicts
+    pdf_filename = f"sds_{safe_name}_{uuid.uuid4().hex[:8]}.pdf"
+
+    # Build HTML (same styling as before)
     html_content = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>Safety Data Sheet - {compound_name}</title>
+        <title>SDS - {compound_name}</title>
         <style>
             body {{
                 font-family: 'Segoe UI', Arial, sans-serif;
@@ -312,12 +328,6 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
                 border-radius: 8px;
                 font-size: 18px;
                 font-weight: bold;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }}
-            .section-header .icon {{
-                font-size: 20px;
             }}
             .section table {{
                 width: 100%;
@@ -340,13 +350,6 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
             }}
             .section tr:nth-child(even) td {{
                 background-color: #f9f9f9;
-            }}
-            .section ul {{
-                margin: 5px 0;
-                padding-left: 20px;
-            }}
-            .section ul li {{
-                margin: 5px 0;
             }}
             .hazard-warning {{
                 background-color: #ffe6e6;
@@ -378,25 +381,24 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
                 <h1>Safety Data Sheet (SDS)</h1>
                 <p>Generated from SMILES using AI & Cheminformatics</p>
             </div>
-            <p class="generated-on"><strong>Compound:</strong> {compound_name} | <strong>Generated on:</strong> {generated_on}</p>
+            <p class="generated-on">
+                <strong>Compound:</strong> {compound_name} | 
+                <strong>Generated on:</strong> {generated_on}
+            </p>
     """
 
-    # Loop through all 16 sections
     for i in range(1, 17):
         section_key = f"Section{i}"
         section = sds.get(section_key, {})
         title = section.get("title", f"Section {i}")
-        
-        
+        data = section.get("data", {})
+
         html_content += f"""
             <div class="section">
-                <div class="section-header">
-                    <span>{i}. {title}</span>
-                </div>
+                <div class="section-header">{i}. {title}</div>
                 <table>
         """
-        
-        data = section.get("data", {})
+
         for key, value in data.items():
             if isinstance(value, list):
                 value = "<br>".join([f"• {v}" for v in value if v]) or "Not available"
@@ -404,8 +406,7 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
                 value = "<em>Not available</em>"
             else:
                 value = str(value)
-            
-            # Special styling for hazard section
+
             if i == 3 and "Hazard" in key:
                 html_content += f"""
                     <tr>
@@ -420,18 +421,18 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
                         <td>{value}</td>
                     </tr>
                 """
-        
+
         html_content += """
                 </table>
             </div>
         """
 
-    # Footer
     html_content += f"""
             <div class="footer">
                 <p>Generated with ❤ for chemical safety</p>
                 <div class="disclaimer">
-                    Disclaimer: This report is generated for research use only. Verify with lab testing and official sources before use.
+                    Disclaimer: This report is generated for research use only. 
+                    Always verify with official sources before handling chemicals.
                 </div>
             </div>
         </div>
@@ -439,23 +440,10 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
     </html>
     """
 
-    # Save temporary HTML
-    temp_html = "temp_sds.html"
-    with open(temp_html, "w", encoding="utf-8") as f:
-        f.write(html_content)
-
-    # PDF filename
-    pdf_path = f"sds_{compound_name.replace(' ', '_').replace('/', '_')}.pdf"
-
     try:
-        # Configure pdfkit with wkhtmltopdf path
-        config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
-        pdfkit.from_file(temp_html, pdf_path, configuration=config)
-        return pdf_path
+        # Generate PDF directly from HTML string
+        HTML(string=html_content).write_pdf(pdf_filename)
+        return pdf_filename  # Return path to PDF
     except Exception as e:
-        st.error(f"PDF generation failed: {e}")
+        print(f"❌ PDF generation failed: {e}")
         return None
-    finally:
-        # Clean up temporary HTML
-        if os.path.exists(temp_html):
-            os.remove(temp_html)

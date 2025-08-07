@@ -215,9 +215,8 @@ if generate_btn or smiles:
                 # -----------------------------
                 with tab2:
                     st.subheader("📥 Download PDF Report")
-                    st.markdown("Generate a professionally styled PDF version of the SDS.")
 
-                    if st.button("📄 Generate & Download PDF"):
+                    if st.button("📄 Generate PDF"):
                         with st.spinner("Generating PDF..."):
                             pdf_path = generate_pdf(sds, compound_name)
                             if pdf_path and os.path.exists(pdf_path):
@@ -229,9 +228,18 @@ if generate_btn or smiles:
                                     file_name=f"SDS_{compound_name.replace(' ', '_')}.pdf",
                                     mime="application/pdf"
                                 )
-                                st.info("✅ PDF generated successfully!")
+                                # Clean up after download
+                                st.session_state.pdf_to_clean = pdf_path
                             else:
-                                st.error("❌ PDF generation failed. Check logs.")
+                                st.error("PDF generation failed.")
+
+                # Optional: Clean up old PDFs
+                if "pdf_to_clean" in st.session_state:
+                    try:
+                        os.remove(st.session_state.pdf_to_clean)
+                    except:
+                        pass
+                    del st.session_state.pdf_to_clean
 
                 # -----------------------------
                 # Tab 3: Export JSON
