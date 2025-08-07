@@ -1,0 +1,6 @@
+streamlit
+rdkit
+pubchempy
+pandas
+pdfkit
+beautifulsoup4
