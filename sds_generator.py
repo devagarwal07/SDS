@@ -253,14 +253,9 @@ def generate_sds(smiles):
 
 # sds_generator.py
 
-from weasyprint import HTML
-import os
-import uuid  # To generate unique filenames
-from datetime import datetime
-
 def generate_pdf(sds, compound_name="Unknown Compound"):
     """
-    Generate PDF using pdfkit with bundled wkhtmltopdf binary.
+    Generate PDF using pdfkit with a bundled wkhtmltopdf binary.
     Works on Streamlit Cloud.
     """
     import pdfkit
@@ -270,7 +265,6 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
     # Sanitize filename
     safe_name = "".join(c for c in compound_name if c.isalnum() or c in "_-")
     safe_name = safe_name.strip().replace(" ", "_") or "Unknown_Compound"
-
     pdf_path = f"SDS_{safe_name}.pdf"
 
     # Build HTML (same as before)
@@ -313,34 +307,33 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
 
     html_content += "</body></html>"
 
-    # Save temporary HTML
+    # Save temp HTML
     temp_html = "temp_sds.html"
     with open(temp_html, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     try:
-        # Point to bundled binary
-        WKHTMLTOPDF_CMD = os.path.join(os.getcwd(), 'bin', 'wkhtmltopdf')
-        
-        if not os.path.exists(WKHTMLTOPDF_CMD):
-            print("❌ wkhtmltopdf binary not found! Expected at:", WKHTMLTOPDF_CMD)
+        # Path to bundled binary
+        WKHTMLTOPDF_PATH = os.path.join(os.getcwd(), 'bin', 'wkhtmltopdf')
+
+        if not os.path.exists(WKHTMLTOPDF_PATH):
+            print("❌ Binary not found at:", WKHTMLTOPDF_PATH)
+            print("Available files:", os.listdir(os.getcwd()))
             return None
 
-        # Ensure it's executable
-        os.chmod(WKHTMLTOPDF_CMD, 0o755)
+        # Ensure it's executable (Linux)
+        if os.name == 'posix':
+            os.chmod(WKHTMLTOPDF_PATH, 0o755)
 
-        # Configure pdfkit to use bundled binary
-        config = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_CMD)
+        # Configure pdfkit
+        config = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_PATH)
         pdfkit.from_file(temp_html, pdf_path, configuration=config)
         return pdf_path
 
     except Exception as e:
         print(f"❌ PDF generation failed: {e}")
-        import traceback
-        traceback.print_exc()
         return None
 
     finally:
-        # Clean up HTML
         if os.path.exists(temp_html):
             os.remove(temp_html)
