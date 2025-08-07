@@ -214,32 +214,23 @@ if generate_btn or smiles:
                 # Tab 2: Download PDF
                 # -----------------------------
                 with tab2:
-                    st.subheader("📥 Download PDF Report")
+                    st.subheader("📥 Download PDF")
 
                     if st.button("📄 Generate PDF"):
-                        with st.spinner("Generating PDF..."):
-                            pdf_path = generate_pdf(sds, compound_name)
-                            if pdf_path and os.path.exists(pdf_path):
-                                with open(pdf_path, "rb") as f:
-                                    pdf_data = f.read()
-                                st.download_button(
-                                    label="⬇️ Download PDF",
-                                    data=pdf_data,
-                                    file_name=f"SDS_{compound_name.replace(' ', '_')}.pdf",
-                                    mime="application/pdf"
-                                )
-                                # Clean up after download
-                                st.session_state.pdf_to_clean = pdf_path
-                            else:
-                                st.error("PDF generation failed.")
+                        pdf_path = generate_pdf(sds, compound_name)
+                        if pdf_path and os.path.exists(pdf_path):
+                            with open(pdf_path, "rb") as f:
+                                st.download_button("⬇️ Download PDF", f.read(), "sds.pdf", "application/pdf")
+                            # Clean up
+                            os.remove(pdf_path)
+                        else:
+                            st.warning("PDF failed. Try downloading HTML instead.")
 
-                # Optional: Clean up old PDFs
-                if "pdf_to_clean" in st.session_state:
-                    try:
-                        os.remove(st.session_state.pdf_to_clean)
-                    except:
-                        pass
-                    del st.session_state.pdf_to_clean
+                    # Fallback: HTML
+                    if st.button("📄 Get Printable HTML"):
+                        html = generate_pdf(sds, compound_name)  # Create this function
+                        st.download_button("⬇️ Download HTML", html, "sds.html", "text/html")
+                        st.markdown("Open HTML in browser and print as PDF.")
 
                 # -----------------------------
                 # Tab 3: Export JSON

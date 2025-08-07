@@ -1,6 +1,4 @@
 streamlit
-
 PubChemPy
 pandas
-weasyprint
-beautifulsoup4
+pdfkit

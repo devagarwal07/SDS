@@ -258,21 +258,23 @@ import os
 import uuid  # To generate unique filenames
 from datetime import datetime
 
-def generate_pdf(sds, compound_name="Unknown_Compound"):
+def generate_pdf(sds, compound_name="Unknown Compound"):
     """
-    Generate a professional PDF using WeasyPrint (no external binaries).
-    Returns path to the generated PDF.
+    Generate PDF using pdfkit with bundled wkhtmltopdf binary.
+    Works on Streamlit Cloud.
     """
-    generated_on = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    import pdfkit
+    import os
+    from datetime import datetime
 
     # Sanitize filename
     safe_name = "".join(c for c in compound_name if c.isalnum() or c in "_-")
     safe_name = safe_name.strip().replace(" ", "_") or "Unknown_Compound"
 
-    # Generate unique filename to avoid conflicts
-    pdf_filename = f"sds_{safe_name}_{uuid.uuid4().hex[:8]}.pdf"
+    pdf_path = f"SDS_{safe_name}.pdf"
 
-    # Build HTML (same styling as before)
+    # Build HTML (same as before)
+    generated_on = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     html_content = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -280,170 +282,65 @@ def generate_pdf(sds, compound_name="Unknown_Compound"):
         <meta charset="UTF-8">
         <title>SDS - {compound_name}</title>
         <style>
-            body {{
-                font-family: 'Segoe UI', Arial, sans-serif;
-                margin: 0;
-                padding: 0;
-                background: #f4f6f9;
-                color: #333;
-            }}
-            .container {{
-                max-width: 900px;
-                margin: 20px auto;
-                padding: 30px;
-                background: white;
-                border: 1px solid #ddd;
-                border-radius: 12px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            }}
-            .header {{
-                text-align: center;
-                margin-bottom: 20px;
-                padding-bottom: 15px;
-                border-bottom: 3px solid #1f77b4;
-            }}
-            .header h1 {{
-                color: #1f77b4;
-                margin: 0;
-                font-size: 28px;
-            }}
-            .header p {{
-                color: #555;
-                font-style: italic;
-                margin: 5px 0 0;
-            }}
-            .generated-on {{
-                text-align: right;
-                font-size: 14px;
-                color: #666;
-                margin-bottom: 20px;
-            }}
-            .section {{
-                margin: 25px 0;
-            }}
-            .section-header {{
-                background: #1f77b4;
-                color: white;
-                padding: 12px 16px;
-                border-radius: 8px;
-                font-size: 18px;
-                font-weight: bold;
-            }}
-            .section table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 10px;
-                font-size: 14px;
-            }}
-            .section th {{
-                background-color: #f0f4f8;
-                color: #1f77b4;
-                text-align: left;
-                padding: 10px;
-                border: 1px solid #ccc;
-                font-weight: 600;
-            }}
-            .section td {{
-                padding: 10px;
-                border: 1px solid #ddd;
-                background-color: #fcfcfc;
-            }}
-            .section tr:nth-child(even) td {{
-                background-color: #f9f9f9;
-            }}
-            .hazard-warning {{
-                background-color: #ffe6e6;
-                border-left: 5px solid #ff4d4d;
-                padding: 12px;
-                margin: 10px 0;
-                border-radius: 4px;
-                font-weight: 500;
-            }}
-            .footer {{
-                text-align: center;
-                margin-top: 40px;
-                padding-top: 15px;
-                border-top: 1px solid #eee;
-                color: #777;
-                font-size: 13px;
-            }}
-            .disclaimer {{
-                font-size: 12px;
-                color: #999;
-                font-style: italic;
-                margin-top: 8px;
-            }}
+            body {{ font-family: Arial; margin: 40px; }}
+            .header {{ text-align: center; border-bottom: 3px solid #1f77b4; padding-bottom: 10px; }}
+            .section {{ margin: 20px 0; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+            th {{ background: #f0f4f8; text-align: left; padding: 8px; border: 1px solid #ccc; }}
+            td {{ padding: 8px; border: 1px solid #ddd; }}
+            .hazard-warning {{ background-color: #ffe6e6; border-left: 5px solid #ff4d4d; padding: 10px; }}
         </style>
     </head>
     <body>
-        <div class="container">
-            <div class="header">
-                <h1>Safety Data Sheet (SDS)</h1>
-                <p>Generated from SMILES using AI & Cheminformatics</p>
-            </div>
-            <p class="generated-on">
-                <strong>Compound:</strong> {compound_name} | 
-                <strong>Generated on:</strong> {generated_on}
-            </p>
+        <div class="header">
+            <h1>Safety Data Sheet (SDS)</h1>
+            <p>{compound_name}</p>
+        </div>
+        <p><strong>Generated on:</strong> {generated_on}</p>
     """
 
     for i in range(1, 17):
-        section_key = f"Section{i}"
-        section = sds.get(section_key, {})
+        section = sds.get(f"Section{i}", {})
         title = section.get("title", f"Section {i}")
-        data = section.get("data", {})
-
-        html_content += f"""
-            <div class="section">
-                <div class="section-header">{i}. {title}</div>
-                <table>
-        """
-
-        for key, value in data.items():
-            if isinstance(value, list):
-                value = "<br>".join([f"• {v}" for v in value if v]) or "Not available"
-            elif not value or value == "Not available":
-                value = "<em>Not available</em>"
-            else:
-                value = str(value)
-
+        html_content += f"<div class='section'><h3>{i}. {title}</h3><table>"
+        for key, value in section.get("data", {}).items():
+            val = ", ".join(value) if isinstance(value, list) else str(value)
+            val = val or "Not available"
             if i == 3 and "Hazard" in key:
-                html_content += f"""
-                    <tr>
-                        <th>{key}</th>
-                        <td class="hazard-warning">{value}</td>
-                    </tr>
-                """
-            else:
-                html_content += f"""
-                    <tr>
-                        <th>{key}</th>
-                        <td>{value}</td>
-                    </tr>
-                """
+                val = f"<div class='hazard-warning'>{val}</div>"
+            html_content += f"<tr><th>{key}</th><td>{val}</td></tr>"
+        html_content += "</table></div>"
 
-        html_content += """
-                </table>
-            </div>
-        """
+    html_content += "</body></html>"
 
-    html_content += f"""
-            <div class="footer">
-                <p>Generated with ❤ for chemical safety</p>
-                <div class="disclaimer">
-                    Disclaimer: This report is generated for research use only. 
-                    Always verify with official sources before handling chemicals.
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    # Save temporary HTML
+    temp_html = "temp_sds.html"
+    with open(temp_html, "w", encoding="utf-8") as f:
+        f.write(html_content)
 
     try:
-        # Generate PDF directly from HTML string
-        HTML(string=html_content).write_pdf(pdf_filename)
-        return pdf_filename  # Return path to PDF
+        # Point to bundled binary
+        WKHTMLTOPDF_CMD = os.path.join(os.getcwd(), 'bin', 'wkhtmltopdf')
+        
+        if not os.path.exists(WKHTMLTOPDF_CMD):
+            print("❌ wkhtmltopdf binary not found! Expected at:", WKHTMLTOPDF_CMD)
+            return None
+
+        # Ensure it's executable
+        os.chmod(WKHTMLTOPDF_CMD, 0o755)
+
+        # Configure pdfkit to use bundled binary
+        config = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_CMD)
+        pdfkit.from_file(temp_html, pdf_path, configuration=config)
+        return pdf_path
+
     except Exception as e:
         print(f"❌ PDF generation failed: {e}")
+        import traceback
+        traceback.print_exc()
         return None
+
+    finally:
+        # Clean up HTML
+        if os.path.exists(temp_html):
+            os.remove(temp_html)
