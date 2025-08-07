@@ -254,10 +254,7 @@ def generate_sds(smiles):
 # sds_generator.py
 
 def generate_pdf(sds, compound_name="Unknown Compound"):
-    """
-    Generate PDF using pdfkit with a bundled wkhtmltopdf binary.
-    Works on Streamlit Cloud.
-    """
+    """Generate PDF using pdfkit with a bundled Linux-compatible wkhtmltopdf binary"""
     import pdfkit
     import os
     from datetime import datetime
@@ -267,7 +264,7 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
     safe_name = safe_name.strip().replace(" ", "_") or "Unknown_Compound"
     pdf_path = f"SDS_{safe_name}.pdf"
 
-    # Build HTML (same as before)
+    # Build HTML (keep your existing HTML logic)
     generated_on = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     html_content = f"""
     <!DOCTYPE html>
@@ -318,14 +315,13 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
 
         if not os.path.exists(WKHTMLTOPDF_PATH):
             print("❌ Binary not found at:", WKHTMLTOPDF_PATH)
-            print("Available files:", os.listdir(os.getcwd()))
+            print("Files in current dir:", os.listdir(os.getcwd()))
             return None
 
-        # Ensure it's executable (Linux)
-        if os.name == 'posix':
-            os.chmod(WKHTMLTOPDF_PATH, 0o755)
+        # Make it executable on Linux
+        os.chmod(WKHTMLTOPDF_PATH, 0o755)
 
-        # Configure pdfkit
+        # Generate PDF
         config = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_PATH)
         pdfkit.from_file(temp_html, pdf_path, configuration=config)
         return pdf_path
