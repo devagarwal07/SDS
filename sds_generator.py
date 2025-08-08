@@ -10,6 +10,12 @@ from pyppeteer import launch
 import os
 import tempfile
 from datetime import datetime
+from docx import Document
+from docx.shared import Pt, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
+from docx.enum.section import WD_ORIENT
+
 
 # -----------------------------
 # Utility Functions
@@ -256,83 +262,84 @@ def generate_sds(smiles):
 
 # sds_generator.py
 
-def generate_pdf(sds, compound_name="Unknown Compound"):
-    """
-    Generate PDF using pyppeteer (headless Chrome).
-    Works on Streamlit Cloud without wkhtmltopdf.
-    """
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(_generate_pdf_async(sds, compound_name))
-    finally:
-        loop.close()
+from docx import Document
+from docx.shared import Pt, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
+from docx.enum.section import WD_ORIENT
+import os
+from datetime import datetime
 
-async def _generate_pdf_async(sds, compound_name):
-    # Sanitize filename
-    safe_name = "".join(c for c in compound_name if c.isalnum() or c in "_-")
-    safe_name = safe_name.strip().replace(" ", "_") or "Unknown_Compound"
-    pdf_path = f"SDS_{safe_name}.pdf"
-
-    # Build HTML (same as before)
-    generated_on = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>SDS - {compound_name}</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 40px; }}
-            .header {{ text-align: center; border-bottom: 3px solid #1f77b4; padding-bottom: 10px; }}
-            .section {{ margin: 20px 0; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-            th {{ background: #f0f4f8; text-align: left; padding: 8px; border: 1px solid #ccc; }}
-            td {{ padding: 8px; border: 1px solid #ddd; }}
-            .hazard-warning {{ background-color: #ffe6e6; border-left: 5px solid #ff4d4d; padding: 10px; }}
-        </style>
-    </head>
-    <body>
-        <div class='header'>
-            <h1>Safety Data Sheet (SDS)</h1>
-            <p>{compound_name}</p>
-        </div>
-        <p><strong>Generated on:</strong> {generated_on}</p>
+def generate_docx(sds, compound_name="Unknown Compound"):
     """
+    Generate a professional Word (.docx) file from the SDS data.
+    Works on Streamlit Cloud and all platforms.
+    """
+    # Create a new Document
+    doc = Document()
+    
+    # Set margins
+    sections = doc.sections
+    for section in sections:
+        section.left_margin = Inches(1)
+        section.right_margin = Inches(1)
+        section.top_margin = Inches(0.8)
+        section.bottom_margin = Inches(0.8)
 
+    # Title
+    title = doc.add_heading('Safety Data Sheet (SDS)', 0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle = doc.add_paragraph(f"Compound: {compound_name}")
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    generated_on = datetime.now().strftime("%Y-%m-%d %H:%M")
+    doc.add_paragraph(f"Generated on: {generated_on}", style='Caption')
+    doc.add_paragraph()
+
+    # Add all 16 sections
     for i in range(1, 17):
-        section = sds.get(f"Section{i}", {})
+        section_key = f"Section{i}"
+        section = sds.get(section_key, {})
         title = section.get("title", f"Section {i}")
-        html_content += f"<div class='section'><h3>{i}. {title}</h3><table>"
-        for key, value in section.get("data", {}).items():
-            val = ", ".join(value) if isinstance(value, list) else str(value)
-            val = val or "Not available"
-            if i == 3 and "Hazard" in key:
-                val = f"<div class='hazard-warning'>{val}</div>"
-            html_content += f"<tr><th>{key}</th><td>{val}</td></tr>"
-        html_content += "</table></div>"
+        
+        # Section header
+        doc.add_heading(f"{i}. {title}", level=1)
 
-    html_content += "</body></html>"
+        data = section.get("data", {})
+        if not data:
+            doc.add_paragraph("No data available.")
+        else:
+            table = doc.add_table(rows=0, cols=2)
+            table.style = 'Table Grid'
+            for key, value in data.items():
+                row = table.add_row()
+                cell_key = row.cells[0]
+                cell_val = row.cells[1]
 
-    # Save HTML to temp file
-    temp_html = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8')
-    temp_html.write(html_content)
-    temp_html.close()
+                # Bold key
+                p_key = cell_key.paragraphs[0]
+                run_key = p_key.add_run(str(key))
+                run_key.bold = True
 
-    try:
-        # Launch Chromium
-        browser = await launch(args=['--no-sandbox', '--disable-setuid-sandbox'])
-        page = await browser.newPage()
-        await page.goto(f'file://{temp_html.name}')
-        await page.pdf({'path': pdf_path, 'format': 'A4', 'printBackground': True})
-        await browser.close()
-        return pdf_path
+                # Value (handle lists)
+                if isinstance(value, list):
+                    val_text = ", ".join([str(v) for v in value if v]) or "Not available"
+                elif not value or value == "Not available":
+                    val_text = "Not available"
+                else:
+                    val_text = str(value)
 
-    except Exception as e:
-        print(f"❌ PDF generation failed: {e}")
-        return None
+                cell_val.text = val_text
 
-    finally:
-        # Clean up
-        if os.path.exists(temp_html.name):
-            os.remove(temp_html.name)
+        doc.add_paragraph()  # Add space between sections
+
+    # Footer / Disclaimer
+    disclaimer = doc.add_paragraph()
+    run = disclaimer.add_run("Disclaimer: This report is generated for research use only. "
+                             "Verify with lab testing and official sources before handling chemicals.")
+    run.italic = True
+    disclaimer.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Save file
+    filename = f"SDS_{compound_name.replace(' ', '_').replace('/', '_')}.docx"
+    doc.save(filename)
+    return filename

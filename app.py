@@ -6,7 +6,7 @@ import tempfile
 from datetime import datetime
 
 # Import your SDS generation logic
-from sds_generator import generate_sds, generate_pdf
+from sds_generator import generate_sds, generate_docx
 
 # -----------------------------
 # Page Configuration
@@ -214,17 +214,23 @@ if generate_btn or smiles:
                 # Tab 2: Download PDF
                 # -----------------------------
                 with tab2:
-                    st.subheader("📥 Download PDF Report")
+                    st.subheader("📥 Download DOCX (Word Document)")
 
-                    if st.button("📄 Generate PDF"):
-                        with st.spinner("Generating PDF with Chromium..."):
-                            pdf_path = generate_pdf(sds, compound_name)
-                            if pdf_path and os.path.exists(pdf_path):
-                                with open(pdf_path, "rb") as f:
-                                    st.download_button("⬇️ Download PDF", f.read(), "sds.pdf", "application/pdf")
-                                os.remove(pdf_path)
+                    if st.button("📄 Generate & Download DOCX", type="primary"):
+                        with st.spinner("Generating Word document..."):
+                            docx_path = generate_docx(sds, compound_name)
+                            if docx_path and os.path.exists(docx_path):
+                                with open(docx_path, "rb") as f:
+                                    st.download_button(
+                                        label="⬇️ Download Word (.docx)",
+                                        data=f.read(),
+                                        file_name=f"SDS_{compound_name.replace(' ', '_')}.docx",
+                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                    )
+                                # Clean up
+                                os.remove(docx_path)
                             else:
-                                st.error("Failed to generate PDF")
+                                st.error("Failed to generate DOCX.")
                 # -----------------------------
                 # Tab 3: Export JSON
                 # -----------------------------
