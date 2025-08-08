@@ -259,10 +259,9 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
     import os
     from datetime import datetime
 
-    # Sanitize filename
+    # Sanitize filename (for display only)
     safe_name = "".join(c for c in compound_name if c.isalnum() or c in "_-")
     safe_name = safe_name.strip().replace(" ", "_") or "Unknown_Compound"
-    pdf_path = f"SDS_{safe_name}.pdf"
 
     # Build HTML (keep your existing HTML logic)
     generated_on = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -305,9 +304,11 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
     html_content += "</body></html>"
 
     # Save temp HTML
-    temp_html = "temp_sds.html"
-    with open(temp_html, "w", encoding="utf-8") as f:
-        f.write(html_content)
+    import tempfile
+    from io import BytesIO
+    temp_html_file = tempfile.NamedTemporaryFile(delete=False, suffix=".html", mode="w", encoding="utf-8")
+    temp_html_file.write(html_content)
+    temp_html_file.close()
 
     try:
         # Path to bundled binary (handle Windows and others)
@@ -326,13 +327,16 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
         if os.name != 'nt':
             os.chmod(WKHTMLTOPDF_PATH, 0o755)
 
-        # Generate PDF
+        # Generate PDF to BytesIO
         config = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_PATH)
-        pdfkit.from_file(temp_html, pdf_path, configuration=config)
-        return pdf_path
+        pdf_bytes = pdfkit.from_file(temp_html_file.name, False, configuration=config)
+        if pdf_bytes:
+            return BytesIO(pdf_bytes)
+        else:
+            return None
     except Exception as e:
         print(f"❌ PDF generation failed: {e}")
         return None
     finally:
-        if os.path.exists(temp_html):
-            os.remove(temp_html)
+        if os.path.exists(temp_html_file.name):
+            os.remove(temp_html_file.name)

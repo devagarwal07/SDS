@@ -217,12 +217,9 @@ if generate_btn or smiles:
                     st.subheader("📥 Download PDF")
 
                     if st.button("📄 Generate PDF"):
-                        pdf_path = generate_pdf(sds, compound_name)
-                        if pdf_path and os.path.exists(pdf_path):
-                            with open(pdf_path, "rb") as f:
-                                st.download_button("⬇️ Download PDF", f.read(), "sds.pdf", "application/pdf")
-                            # Clean up
-                            os.remove(pdf_path)
+                        pdf_bytesio = generate_pdf(sds, compound_name)
+                        if pdf_bytesio:
+                            st.download_button("⬇️ Download PDF", pdf_bytesio, "sds.pdf", "application/pdf")
                         else:
                             st.warning("PDF failed. Try downloading HTML instead.")
 
