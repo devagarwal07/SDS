@@ -310,8 +310,12 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
         f.write(html_content)
 
     try:
-        # Path to bundled binary
-        WKHTMLTOPDF_PATH = os.path.join(os.getcwd(), 'bin', 'wkhtmltopdf')
+        # Path to bundled binary (handle Windows and others)
+        if os.name == 'nt':
+            wkhtmltopdf_filename = 'wkhtmltopdf.exe'
+        else:
+            wkhtmltopdf_filename = 'wkhtmltopdf'
+        WKHTMLTOPDF_PATH = os.path.join(os.getcwd(), 'bin', wkhtmltopdf_filename)
 
         if not os.path.exists(WKHTMLTOPDF_PATH):
             print("❌ Binary not found at:", WKHTMLTOPDF_PATH)
@@ -319,17 +323,16 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
             return None
 
         # Make it executable on Linux
-        os.chmod(WKHTMLTOPDF_PATH, 0o755)
+        if os.name != 'nt':
+            os.chmod(WKHTMLTOPDF_PATH, 0o755)
 
         # Generate PDF
         config = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_PATH)
         pdfkit.from_file(temp_html, pdf_path, configuration=config)
         return pdf_path
-
     except Exception as e:
         print(f"❌ PDF generation failed: {e}")
         return None
-
     finally:
         if os.path.exists(temp_html):
             os.remove(temp_html)
