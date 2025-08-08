@@ -162,7 +162,7 @@ if generate_btn or smiles:
                 st.success(f"✅ SDS Generated for: **{compound_name}**")
 
                 # Tabs
-                tab1, tab2, tab3 = st.tabs(["📋 Report", "📥 Download PDF", "📦 Export JSON"])
+                tab1, tab2, tab3 = st.tabs(["📋 Report", "📥 Download Report", "📦 Export JSON"])
 
                 # -----------------------------
                 # Tab 1: Interactive SDS Report
