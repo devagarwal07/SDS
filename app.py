@@ -214,24 +214,17 @@ if generate_btn or smiles:
                 # Tab 2: Download PDF
                 # -----------------------------
                 with tab2:
-                    st.subheader("📥 Download PDF")
+                    st.subheader("📥 Download PDF Report")
 
                     if st.button("📄 Generate PDF"):
-                        pdf_path = generate_pdf(sds, compound_name)
-                        if pdf_path and os.path.exists(pdf_path):
-                            with open(pdf_path, "rb") as f:
-                                st.download_button("⬇️ Download PDF", f.read(), "sds.pdf", "application/pdf")
-                            # Clean up
-                            os.remove(pdf_path)
-                        else:
-                            st.warning("PDF failed. Try downloading HTML instead.")
-
-                    # Fallback: HTML
-                    if st.button("📄 Get Printable HTML"):
-                        html = generate_pdf(sds, compound_name)  # Create this function
-                        st.download_button("⬇️ Download HTML", html, "sds.html", "text/html")
-                        st.markdown("Open HTML in browser and print as PDF.")
-
+                        with st.spinner("Generating PDF with Chromium..."):
+                            pdf_path = generate_pdf(sds, compound_name)
+                            if pdf_path and os.path.exists(pdf_path):
+                                with open(pdf_path, "rb") as f:
+                                    st.download_button("⬇️ Download PDF", f.read(), "sds.pdf", "application/pdf")
+                                os.remove(pdf_path)
+                            else:
+                                st.error("Failed to generate PDF")
                 # -----------------------------
                 # Tab 3: Export JSON
                 # -----------------------------

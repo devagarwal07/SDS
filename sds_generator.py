@@ -5,8 +5,11 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors, rdMolDescriptors
 import pandas as pd
 import json
+import asyncio
+from pyppeteer import launch
 import os
-import pdfkit
+import tempfile
+from datetime import datetime
 
 # -----------------------------
 # Utility Functions
@@ -254,17 +257,24 @@ def generate_sds(smiles):
 # sds_generator.py
 
 def generate_pdf(sds, compound_name="Unknown Compound"):
-    """Generate PDF using pdfkit with a bundled Linux-compatible wkhtmltopdf binary"""
-    import pdfkit
-    import os
-    from datetime import datetime
+    """
+    Generate PDF using pyppeteer (headless Chrome).
+    Works on Streamlit Cloud without wkhtmltopdf.
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(_generate_pdf_async(sds, compound_name))
+    finally:
+        loop.close()
 
+async def _generate_pdf_async(sds, compound_name):
     # Sanitize filename
     safe_name = "".join(c for c in compound_name if c.isalnum() or c in "_-")
     safe_name = safe_name.strip().replace(" ", "_") or "Unknown_Compound"
     pdf_path = f"SDS_{safe_name}.pdf"
 
-    # Build HTML (keep your existing HTML logic)
+    # Build HTML (same as before)
     generated_on = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     html_content = f"""
     <!DOCTYPE html>
@@ -273,7 +283,7 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
         <meta charset="UTF-8">
         <title>SDS - {compound_name}</title>
         <style>
-            body {{ font-family: Arial; margin: 40px; }}
+            body {{ font-family: Arial, sans-serif; margin: 40px; }}
             .header {{ text-align: center; border-bottom: 3px solid #1f77b4; padding-bottom: 10px; }}
             .section {{ margin: 20px 0; }}
             table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
@@ -283,7 +293,7 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
         </style>
     </head>
     <body>
-        <div class="header">
+        <div class='header'>
             <h1>Safety Data Sheet (SDS)</h1>
             <p>{compound_name}</p>
         </div>
@@ -304,26 +314,18 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
 
     html_content += "</body></html>"
 
-    # Save temp HTML
-    temp_html = "temp_sds.html"
-    with open(temp_html, "w", encoding="utf-8") as f:
-        f.write(html_content)
+    # Save HTML to temp file
+    temp_html = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8')
+    temp_html.write(html_content)
+    temp_html.close()
 
     try:
-        # Path to bundled binary
-        WKHTMLTOPDF_PATH = os.path.join(os.getcwd(), 'bin', 'wkhtmltopdf')
-
-        if not os.path.exists(WKHTMLTOPDF_PATH):
-            print("❌ Binary not found at:", WKHTMLTOPDF_PATH)
-            print("Files in current dir:", os.listdir(os.getcwd()))
-            return None
-
-        # Make it executable on Linux
-        os.chmod(WKHTMLTOPDF_PATH, 0o755)
-
-        # Generate PDF
-        config = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_PATH)
-        pdfkit.from_file(temp_html, pdf_path, configuration=config)
+        # Launch Chromium
+        browser = await launch(args=['--no-sandbox', '--disable-setuid-sandbox'])
+        page = await browser.newPage()
+        await page.goto(f'file://{temp_html.name}')
+        await page.pdf({'path': pdf_path, 'format': 'A4', 'printBackground': True})
+        await browser.close()
         return pdf_path
 
     except Exception as e:
@@ -331,5 +333,6 @@ def generate_pdf(sds, compound_name="Unknown Compound"):
         return None
 
     finally:
-        if os.path.exists(temp_html):
-            os.remove(temp_html)
+        # Clean up
+        if os.path.exists(temp_html.name):
+            os.remove(temp_html.name)
