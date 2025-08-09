@@ -6,7 +6,7 @@ import tempfile
 from datetime import datetime
 
 # Import your SDS generation logic
-from sds_generator import generate_sds, generate_docx
+from sds_generator import generate_sds, generate_docx, generate_pdf
 
 # -----------------------------
 # Page Configuration
@@ -211,12 +211,13 @@ if generate_btn or smiles:
                             st.markdown('</div>', unsafe_allow_html=True)
 
                 # -----------------------------
-                # Tab 2: Download PDF
+                # Tab 2: Download Reports
                 # -----------------------------
                 with tab2:
-                    st.subheader("📥 Download DOCX (Word Document)")
-
-                    if st.button("📄 Generate & Download DOCX", type="primary"):
+                    st.subheader("📥 Download Reports")
+                    
+                    st.markdown("### 📄 Word Document")
+                    if st.button("📄 Generate & Download DOCX", type="primary", key="docx_btn"):
                         with st.spinner("Generating Word document..."):
                             docx_path = generate_docx(sds, compound_name)
                             if docx_path and os.path.exists(docx_path):
@@ -225,12 +226,31 @@ if generate_btn or smiles:
                                         label="⬇️ Download Word (.docx)",
                                         data=f.read(),
                                         file_name=f"SDS_{compound_name.replace(' ', '_')}.docx",
-                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                        key="download_docx"
                                     )
                                 # Clean up
                                 os.remove(docx_path)
                             else:
                                 st.error("Failed to generate DOCX.")
+                    
+                    st.markdown("### 📋 PDF Document")
+                    if st.button("📋 Generate & Download PDF", type="primary", key="pdf_btn"):
+                        with st.spinner("Generating PDF document..."):
+                            pdf_path = generate_pdf(sds, compound_name)
+                            if pdf_path and os.path.exists(pdf_path):
+                                with open(pdf_path, "rb") as f:
+                                    st.download_button(
+                                        label="⬇️ Download PDF (.pdf)",
+                                        data=f.read(),
+                                        file_name=f"SDS_{compound_name.replace(' ', '_')}.pdf",
+                                        mime="application/pdf",
+                                        key="download_pdf"
+                                    )
+                                # Clean up
+                                os.remove(pdf_path)
+                            else:
+                                st.error("Failed to generate PDF.")
                 # -----------------------------
                 # Tab 3: Export JSON
                 # -----------------------------

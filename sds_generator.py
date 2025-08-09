@@ -6,7 +6,7 @@ from rdkit.Chem import Descriptors, rdMolDescriptors
 import pandas as pd
 import json
 import asyncio
-from pyppeteer import launch
+# from pyppeteer import launch  # Removed unused import causing ModuleNotFoundError
 import os
 import tempfile
 from datetime import datetime
@@ -269,6 +269,12 @@ from docx.oxml.ns import qn
 from docx.enum.section import WD_ORIENT
 import os
 from datetime import datetime
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 def generate_docx(sds, compound_name="Unknown Compound"):
     """
@@ -342,4 +348,133 @@ def generate_docx(sds, compound_name="Unknown Compound"):
     # Save file
     filename = f"SDS_{compound_name.replace(' ', '_').replace('/', '_')}.docx"
     doc.save(filename)
+    return filename
+
+def generate_pdf(sds, compound_name="Unknown Compound"):
+    """
+    Generate a professional PDF file from the SDS data using ReportLab.
+    Works on Streamlit Cloud and all platforms.
+    """
+    # Create filename
+    filename = f"SDS_{compound_name.replace(' ', '_').replace('/', '_')}.pdf"
+    
+    # Create PDF document
+    doc = SimpleDocTemplate(
+        filename,
+        pagesize=A4,
+        rightMargin=72,
+        leftMargin=72,
+        topMargin=72,
+        bottomMargin=18
+    )
+    
+    # Get styles
+    styles = getSampleStyleSheet()
+    
+    # Create custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1e3c72')
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=12,
+        spaceBefore=20,
+        textColor=colors.HexColor('#2a5298')
+    )
+    
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=6
+    )
+    
+    caption_style = ParagraphStyle(
+        'CustomCaption',
+        parent=styles['Normal'],
+        fontSize=9,
+        alignment=TA_CENTER,
+        textColor=colors.grey
+    )
+    
+    # Build PDF content
+    story = []
+    
+    # Title
+    story.append(Paragraph("Safety Data Sheet (SDS)", title_style))
+    story.append(Paragraph(f"Compound: {compound_name}", caption_style))
+    generated_on = datetime.now().strftime("%Y-%m-%d %H:%M")
+    story.append(Paragraph(f"Generated on: {generated_on}", caption_style))
+    story.append(Spacer(1, 24))
+    
+    # Add all 16 sections
+    for i in range(1, 17):
+        section_key = f"Section{i}"
+        section = sds.get(section_key, {})
+        title = section.get("title", f"Section {i}")
+        
+        # Section header
+        story.append(Paragraph(f"{i}. {title}", heading_style))
+        
+        data = section.get("data", {})
+        if not data:
+            story.append(Paragraph("No data available.", normal_style))
+        else:
+            # Create table data
+            table_data = []
+            for key, value in data.items():
+                # Handle different value types
+                if isinstance(value, list):
+                    val_text = ", ".join([str(v) for v in value if v]) or "Not available"
+                elif not value or value == "Not available":
+                    val_text = "Not available"
+                else:
+                    val_text = str(value)
+                
+                # Wrap long text
+                if len(val_text) > 80:
+                    val_text = val_text[:80] + "..."
+                
+                table_data.append([
+                    Paragraph(f"<b>{key}</b>", normal_style),
+                    Paragraph(val_text, normal_style)
+                ])
+            
+            # Create table
+            if table_data:
+                table = Table(table_data, colWidths=[2.5*inch, 4*inch])
+                table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f0f0f0')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                    ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ]))
+                story.append(table)
+        
+        story.append(Spacer(1, 12))
+    
+    # Footer / Disclaimer
+    disclaimer_text = ("Disclaimer: This report is generated for research use only. "
+                      "Verify with lab testing and official sources before handling chemicals.")
+    story.append(Spacer(1, 24))
+    story.append(Paragraph(f"<i>{disclaimer_text}</i>", caption_style))
+    
+    # Build PDF
+    doc.build(story)
     return filename
