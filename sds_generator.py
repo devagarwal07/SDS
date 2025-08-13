@@ -1,15 +1,8 @@
 # sds_generator.py
 import streamlit as st
 import pubchempy as pcp
-try:
-    from rdkit import Chem
-    from rdkit.Chem import Descriptors, rdMolDescriptors
-    RDKit_AVAILABLE = True
-except ModuleNotFoundError:
-    Chem = None
-    Descriptors = None
-    rdMolDescriptors = None
-    RDKit_AVAILABLE = False
+from rdkit import Chem
+from rdkit.Chem import Descriptors, rdMolDescriptors
 import pandas as pd
 import json
 import asyncio
@@ -120,12 +113,6 @@ def section_name(i):
     return names.get(i, f"Section {i}")
 
 def generate_sds(smiles):
-    # Ensure RDKit is available (Streamlit Cloud must run Python 3.8–3.12)
-    if not RDKit_AVAILABLE:
-        st.error(
-            "RDKit is required to generate the SDS. Set runtime.txt to '3.12' and keep 'rdkit-pypi' in requirements.txt, then redeploy."
-        )
-        return None
     mol = smiles_to_mol(smiles)
     if not mol:
         return None
