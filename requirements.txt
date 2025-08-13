@@ -3,5 +3,5 @@ PubChemPy
 pandas
 python-docx
 reportlab
-rdkit-pypi==2024.03.5
+rdkit-pypi
 Pillow
