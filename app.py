@@ -5,6 +5,19 @@ import os
 import tempfile
 from datetime import datetime
 
+# Ensure RDKit is available before importing the generator that depends on it
+try:
+    from rdkit import Chem  # noqa: F401
+except Exception:
+    st.error(
+        "RDKit is not installed. On Windows, install via conda:\n"
+        "1) conda create -n sds python=3.10 -y\n"
+        "2) conda activate sds\n"
+        "3) conda install -c conda-forge rdkit=2022.09.5 -y\n"
+        "4) python -m pip install -r SDS/requirements.txt"
+    )
+    st.stop()
+
 # Import your SDS generation logic
 from sds_generator import generate_sds, generate_docx, generate_pdf
 
