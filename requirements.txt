@@ -3,5 +3,3 @@ PubChemPy
 pandas
 python-docx
 reportlab
-rdkit-pypi
-Pillow
